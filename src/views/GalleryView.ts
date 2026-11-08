@@ -49,6 +49,10 @@ export abstract class GalleryView implements IGalleryView {
     public showCaptions: boolean = true;
     public captionMaxLines: number = 1;
     public paginationEnabled: boolean = false;
+    /** Show the page controls even when everything fits on one page (`pagination: force`) */
+    protected forcePaginationBar: boolean = false;
+    /** Opens the gallery's settings; the page controls show a button for it when set */
+    protected onConfigure: (() => void) | null = null;
     public itemsPerPage: number = 24;
     protected currentPage: number = 1;
     /** Per-gallery layout sizes from the block's view: options (px); views that support them apply them */
@@ -160,7 +164,12 @@ export abstract class GalleryView implements IGalleryView {
         if (typeof options.captionMaxLines === 'number') this.captionMaxLines = options.captionMaxLines;
         if (typeof options.slideshowInterval === 'number') this.slideshowIntervalSeconds = slideshowSeconds(options.slideshowInterval);
         if (typeof options.maxRemoteVideoMb === 'number' && options.maxRemoteVideoMb >= 0) this.maxRemoteVideoMb = options.maxRemoteVideoMb;
-        if (typeof options.pagination === 'boolean') this.paginationEnabled = options.pagination;
+        if (typeof options.pagination === 'boolean' || options.pagination === 'force') {
+            this.paginationEnabled = options.pagination !== false;
+            this.forcePaginationBar = options.pagination === 'force';
+        }
+        // Only the first render knows where its block is; later option updates leave this alone
+        if (typeof options.onConfigure === 'function') this.onConfigure = options.onConfigure;
         if (typeof options.itemsPerPage === 'number' && options.itemsPerPage > 0) this.itemsPerPage = Math.floor(options.itemsPerPage);
         // Passed together for each gallery, so a key that is present but undefined clears an earlier value
         if ('rowHeight' in options || 'columnWidth' in options || 'gap' in options || 'height' in options) {
@@ -230,7 +239,7 @@ export abstract class GalleryView implements IGalleryView {
     protected renderPaginationControls(parent: HTMLElement): void {
         if (!this.paginationEnabled || this.itemsPerPage <= 0) return;
         const pages = this.totalPages;
-        if (pages <= 1) return;
+        if (pages <= 1 && !this.forcePaginationBar) return;
 
         const bar = this.createElement(parent, 'div', { cls: 'gallery-pagination' });
 
@@ -260,6 +269,20 @@ export abstract class GalleryView implements IGalleryView {
             e.preventDefault();
             this.goToPage(this.currentPage + 1);
         });
+
+        const configure = this.onConfigure;
+        if (configure) {
+            const configureBtn = this.createElement(bar, 'button', {
+                cls: 'gallery-pagination-configure clickable-icon',
+                attr: { 'aria-label': 'Gallery settings', 'title': 'Gallery settings' }
+            });
+            setIcon(configureBtn, 'settings');
+            configureBtn.addEventListener('click', (e: MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                configure();
+            });
+        }
     }
 
     /**

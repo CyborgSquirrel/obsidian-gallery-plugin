@@ -270,7 +270,8 @@ export interface ViewRuntimeOptions {
   slideshowInterval?: number;
   /** Image viewer: largest remote video (MB) downloaded to play; 0 = no limit */
   maxRemoteVideoMb?: number;
-  pagination?: boolean;
+  /** true: page controls when there is more than one page; "force": controls even with a single page */
+  pagination?: boolean | 'force';
   itemsPerPage?: number;
   /** Draw the gallery's frame: border, background, shadow and padding */
   frame?: boolean;
@@ -282,6 +283,8 @@ export interface ViewRuntimeOptions {
   gap?: number;
   /** Carousel: stage height in px */
   height?: number;
+  /** Opens the gallery's settings; when given, the page controls get a settings button */
+  onConfigure?: () => void;
   /** Notes shown under the gallery, e.g. ignored view options */
   warnings?: string[];
 }

@@ -41,7 +41,7 @@ view:
 ```
 ````
 
-Pagination can also be turned on by default for every gallery via **Settings → Gallery View → Pagination**; the per-gallery `pagination`/`itemsPerPage` keys shown above override that default. The same keys work in every view.
+Pagination can also be turned on by default for every gallery via **Settings → Gallery View → Pagination**; the per-gallery `pagination`/`itemsPerPage` keys shown above override that default. The same keys work in every view. `pagination: force` shows the controls even when everything fits on one page.
 
 ### Column width and spacing
 

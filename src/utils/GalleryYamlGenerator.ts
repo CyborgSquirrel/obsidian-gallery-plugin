@@ -6,7 +6,17 @@ import { resolveViewType } from '../models/viewTypes';
 const VIEW_OPTION_ORDER: (keyof ViewBlockOptions)[] = ['captions', 'frame', 'rowHeight', 'columnWidth', 'height', 'gap', 'pagination', 'itemsPerPage'];
 
 export class GalleryYamlGenerator {
+    /** A complete code block to insert into a note */
     static generateYaml(
+        sources: Partial<ISourceConfig>[],
+        viewType: string,
+        viewOptions: ViewBlockOptions = {}
+    ): string {
+        return '\n```obs-gallery\n' + this.generateBody(sources, viewType, viewOptions) + '```\n';
+    }
+
+    /** The YAML inside a code block, without the fences */
+    static generateBody(
         sources: Partial<ISourceConfig>[],
         viewType: string,
         viewOptions: ViewBlockOptions = {}
@@ -15,8 +25,7 @@ export class GalleryYamlGenerator {
             throw new Error('At least one source is required.');
         }
 
-        let yaml = '\n```obs-gallery\n';
-        yaml += 'sources:\n';
+        let yaml = 'sources:\n';
 
         for (const source of sources) {
             if (!source.type) continue;
@@ -230,7 +239,6 @@ export class GalleryYamlGenerator {
             if (key === 'itemsPerPage' && !viewOptions.pagination) continue;
             yaml += `  ${key}: ${value}\n`;
         }
-        yaml += '```\n';
 
         return yaml;
     }

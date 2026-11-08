@@ -24,6 +24,12 @@ describe('readViewOptions', () => {
         });
     });
 
+    test('pagination is true, false or "force"', () => {
+        expect(readViewOptions({ type: 'masonry', pagination: 'force' }).options).toEqual({ pagination: 'force' });
+        expect(viewOptionErrors({ type: 'masonry', pagination: 'always' })).toEqual(['view.pagination must be true, false or "force"']);
+        expect(viewOptionErrors({ type: 'masonry', pagination: 1 })).toHaveLength(1);
+    });
+
     test('a view given as a plain name has no options', () => {
         expect(readViewOptions('masonry')).toEqual({ type: 'masonry', options: {}, warnings: [] });
     });

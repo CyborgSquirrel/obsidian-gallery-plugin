@@ -1,6 +1,7 @@
 import { GalleryBuilderModal } from './ui/GalleryBuilderModal';
 import { Logger } from "./utils/Logger";
-import { Plugin, App, MarkdownPostProcessorContext, MarkdownView, Notice } from 'obsidian';
+import { readBlockForBuilder, replaceBlockContents } from './utils/GalleryBlockEditor';
+import { Plugin, App, MarkdownPostProcessorContext, MarkdownView, Notice, TFile } from 'obsidian';
 import { ContentScanner } from './services/ContentScanner';
 import { ViewFactory } from './views/ViewFactory';
 import { GalleryProcessor, RefreshSources } from './processors/GalleryProcessor';
@@ -307,6 +308,34 @@ export default class GalleryPlugin extends Plugin {
     }
 
     /**
+     * Open the gallery builder on a rendered gallery's code block; saving writes the new YAML
+     * over the block in its note.
+     */
+    private configureGallery(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext): void {
+        const block = readBlockForBuilder(source);
+        const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+        if (!block || !(file instanceof TFile) || !ctx.getSectionInfo(el)) {
+            new Notice('This gallery\'s settings can\'t be opened here. Edit its code block in the note instead.');
+            return;
+        }
+
+        new GalleryBuilderModal(this.app, this, null, {
+            block,
+            onSave: async (body: string) => {
+                // Read the position again: lines may have been added above the block since it rendered
+                const info = ctx.getSectionInfo(el);
+                let replaced = false;
+                await this.app.vault.process(file, text => {
+                    const next = info ? replaceBlockContents(text, info.lineStart, info.lineEnd, source, body) : null;
+                    replaced = next !== null;
+                    return next ?? text;
+                });
+                if (!replaced) throw new Error('the note changed since this gallery was drawn, or the block is inside a list or callout. Edit its code block in the note instead.');
+            }
+        }).open();
+    }
+
+    /**
      * Process gallery using professional pipeline
      */
     private async processGalleryProfessional(
@@ -326,7 +355,10 @@ export default class GalleryPlugin extends Plugin {
 
         try {
             // Use the comprehensive gallery processor with professional features
-            const result = await this.galleryProcessor.processCodeBlock(source, el, ctx, this.getProcessingOptions());
+            const result = await this.galleryProcessor.processCodeBlock(source, el, ctx, {
+                ...this.getProcessingOptions(),
+                onConfigure: () => this.configureGallery(source, el, ctx)
+            });
 
             if (!result.success) {
                 console.error('Gallery processing failed:', result.errors);

@@ -302,6 +302,54 @@ describe('Gallery Views - Pagination', () => {
     expect(container.querySelector('.gallery-pagination-status').textContent).toBe('Page 1 of 3');
   });
 
+  describe('page controls bar', () => {
+    const render = (options: object, count: number) => {
+      const container = createMockContainer();
+      const view = new MasonryView(container as any);
+      view.setOptions({ itemsPerPage: 10, ...options });
+      view.update(makeImages(count));
+      return { container, view };
+    };
+
+    test('a single page has no bar, unless pagination is "force"', () => {
+      expect(render({ pagination: true }, 5).container.querySelector('.gallery-pagination')).toBeNull();
+
+      const { container } = render({ pagination: 'force' }, 5);
+      expect(container.querySelector('.gallery-pagination')).not.toBeNull();
+      expect(container.querySelector('.gallery-pagination-status').textContent).toBe('Page 1 of 1');
+      expect((container.querySelector('.gallery-pagination-next') as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    test('turning pagination back to true or false drops "force"', () => {
+      const { container, view } = render({ pagination: 'force' }, 5);
+      view.setOptions({ pagination: true });
+      view.update(makeImages(5));
+      expect(container.querySelector('.gallery-pagination')).toBeNull();
+    });
+
+    test('the settings button appears with the bar when the gallery can be configured, and opens them', () => {
+      const onConfigure = jest.fn();
+      const { container } = render({ pagination: 'force', onConfigure }, 5);
+      const button = container.querySelector('.gallery-pagination-configure') as HTMLButtonElement;
+
+      expect(button).not.toBeNull();
+      button.dispatchEvent(new Event('click', { bubbles: true, cancelable: true }));
+      expect(onConfigure).toHaveBeenCalledTimes(1);
+    });
+
+    test('there is no settings button without a way to open them, or without a bar', () => {
+      expect(render({ pagination: 'force' }, 5).container.querySelector('.gallery-pagination-configure')).toBeNull();
+      expect(render({ pagination: true, onConfigure: jest.fn() }, 5).container.querySelector('.gallery-pagination')).toBeNull();
+    });
+
+    test('later option updates keep the settings button', () => {
+      const { container, view } = render({ pagination: 'force', onConfigure: jest.fn() }, 5);
+      view.setOptions({ pagination: 'force', itemsPerPage: 10 });
+      view.update(makeImages(5));
+      expect(container.querySelector('.gallery-pagination-configure')).not.toBeNull();
+    });
+  });
+
   test('EmbedView also respects pagination', () => {
     const embedContainer = createMockContainer();
     const embedView = new EmbedView(embedContainer as any);

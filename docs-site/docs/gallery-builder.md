@@ -105,6 +105,12 @@ The **Live preview** panel at the bottom of the modal shows the YAML that will b
 
 Once you're happy with the configuration, click **Insert gallery**. The block is inserted at your cursor and the modal closes.
 
+### Changing an existing gallery
+
+A paged gallery's Prev/Next bar has a **Gallery settings** button (the cog) on its right. It opens the builder on that gallery's block, with its sources and layout filled in; **Save changes** rewrites the block in your note. The bar only shows when the gallery has more than one page, so to get the button on a gallery that fits on one page, set `pagination: force` (or choose **Always show controls** under **Pagination** in the builder).
+
+Saving rewrites the whole block from the builder, which can't keep YAML comments or settings it doesn't show. If a block looks like it was written by hand, the builder asks before overwriting it. The button also doesn't work on a block inside a list or callout, or if the note changed after the gallery was drawn; edit those in the note.
+
 ---
 
 ## YAML Autocomplete

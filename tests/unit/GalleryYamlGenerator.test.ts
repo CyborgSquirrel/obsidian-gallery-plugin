@@ -183,6 +183,16 @@ describe('GalleryYamlGenerator', () => {
         expect(result).not.toContain('itemsPerPage:');
     });
 
+    it('should write pagination: force, and the body without fences', () => {
+        const sources: Partial<ISourceConfig>[] = [{ type: 'local', path: 'Assets/Photos' }];
+
+        expect(GalleryYamlGenerator.generateYaml(sources, 'grid', { pagination: 'force' })).toContain('pagination: force');
+        const body = GalleryYamlGenerator.generateBody(sources, 'grid', { pagination: 'force' });
+        expect(body).not.toContain('```');
+        expect(body.startsWith('sources:\n')).toBe(true);
+        expect(GalleryYamlGenerator.generateYaml(sources, 'grid')).toBe('\n```obs-gallery\n' + GalleryYamlGenerator.generateBody(sources, 'grid') + '```\n');
+    });
+
     it('should emit pagination and itemsPerPage when enabled', () => {
         const sources: Partial<ISourceConfig>[] = [
             { type: 'local', path: 'Assets/Photos' }

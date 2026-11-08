@@ -47,7 +47,7 @@ view:                  # long form, with options
 | Key | Values | Default | Description |
 |---|---|---|---|
 | `type` | `thumbnail`, `carousel`, `masonry`, `justified`, `embed` | `thumbnail` | The layout. The older name `grid` is still accepted and renders as `masonry`. |
-| `pagination` | `true` / `false` | The **Enable pagination by default** setting (off) | Show a fixed number of images per page with Prev/Next buttons, instead of one long scroll. All views except `carousel`. |
+| `pagination` | `true` / `false` / `force` | The **Enable pagination by default** setting (off) | Show a fixed number of images per page with Prev/Next buttons, instead of one long scroll. `force` shows the buttons, and the [gallery settings button](./gallery-builder.md#changing-an-existing-gallery), even when everything fits on one page. All views except `carousel`. |
 | `itemsPerPage` | whole number, 1–10000 | The **Images per page** setting (24) | Images per page when pagination is on. All views except `carousel`. |
 | `captions` | `true` / `false` | The **Show captions** setting (on) | `true`: captions under each image. `false`: captions only on hover. All views. |
 | `frame` | `true` / `false` | The **Show gallery frame** setting (on) | `false` removes the box around the gallery (border, shadow, background and padding), so the images sit directly in the note. Thumbnail tiles keep their card look. All views except `embed`, which never has a frame. |

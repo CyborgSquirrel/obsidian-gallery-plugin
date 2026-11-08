@@ -2,6 +2,9 @@ import '../../tests/setup';
 import { App, Plugin, Modal, Setting, Editor } from 'obsidian';
 import { GalleryBuilderModal } from '../../src/ui/GalleryBuilderModal';
 import type GalleryPlugin from '../../src/main';
+import { confirmAction } from '../../src/ui/ConfirmModal';
+
+jest.mock('../../src/ui/ConfirmModal', () => ({ confirmAction: jest.fn() }));
 
 if (typeof Element !== 'undefined' && !(Element.prototype as any).empty) {
   (Element.prototype as any).empty = function() {
@@ -279,11 +282,11 @@ describe('GalleryBuilderModal view options', () => {
     });
 
     test.each([
-        ['justified', ['Captions', 'Frame', 'Row height', 'Gap', 'Enable pagination']],
-        ['masonry', ['Captions', 'Frame', 'Column width', 'Gap', 'Enable pagination']],
+        ['justified', ['Captions', 'Frame', 'Row height', 'Gap', 'Pagination']],
+        ['masonry', ['Captions', 'Frame', 'Column width', 'Gap', 'Pagination']],
         ['carousel', ['Captions', 'Frame', 'Carousel height']],
-        ['thumbnail', ['Captions', 'Frame', 'Enable pagination']],
-        ['embed', ['Captions', 'Enable pagination']]
+        ['thumbnail', ['Captions', 'Frame', 'Pagination']],
+        ['embed', ['Captions', 'Pagination']]
     ])('shows the options of the %s view', (viewType, expected) => {
         const modal = new GalleryBuilderModal(mockApp, mockPlugin, mockEditor);
         const container = document.createElement('div');
@@ -306,5 +309,60 @@ describe('GalleryBuilderModal view options', () => {
 
         const inserted = (mockEditor.replaceSelection as jest.Mock).mock.calls[0][0];
         expect(inserted).toContain('view:\n  type: justified\n  captions: false\n  frame: true\n  rowHeight: 150\n  gap: 15\n```');
+    });
+});
+describe('GalleryBuilderModal editing an existing block', () => {
+    const app = { vault: { getAllLoadedFiles: () => [] }, workspace: { getActiveFile: () => null } } as unknown as App;
+    const plugin = { settings: {} } as unknown as GalleryPlugin;
+    const block = (handWritten: boolean) => ({
+        viewType: 'justified',
+        viewOptions: { pagination: 'force' as const, itemsPerPage: 3 },
+        sources: [{ type: 'local' as const, path: 'Photos/Trip' }],
+        handWritten
+    });
+
+    beforeEach(() => (confirmAction as jest.Mock).mockReset());
+
+    it('starts from the block and saves its new YAML without fences', async () => {
+        const onSave = jest.fn().mockResolvedValue(undefined);
+        const modal = new GalleryBuilderModal(app, plugin, null, { block: block(false), onSave });
+        (modal as any).viewOptions.itemsPerPage = 5;
+
+        await (modal as any).insertGallery();
+
+        expect(confirmAction).not.toHaveBeenCalled();
+        const body = onSave.mock.calls[0][0] as string;
+        expect(body).toContain('path: Photos/Trip');
+        expect(body).toContain('pagination: force');
+        expect(body).toContain('itemsPerPage: 5');
+        expect(body).not.toContain('```');
+    });
+
+    it('asks before overwriting a block that looks hand-written, and keeps it if declined', async () => {
+        (confirmAction as jest.Mock).mockResolvedValue(false);
+        const onSave = jest.fn();
+        const modal = new GalleryBuilderModal(app, plugin, null, { block: block(true), onSave });
+
+        await (modal as any).insertGallery();
+
+        expect(confirmAction).toHaveBeenCalledTimes(1);
+        expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it('saves a hand-written block once the overwrite is confirmed', async () => {
+        (confirmAction as jest.Mock).mockResolvedValue(true);
+        const onSave = jest.fn().mockResolvedValue(undefined);
+        const modal = new GalleryBuilderModal(app, plugin, null, { block: block(true), onSave });
+
+        await (modal as any).insertGallery();
+
+        expect(onSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not change the block it was given', () => {
+        const given = block(false);
+        const modal = new GalleryBuilderModal(app, plugin, null, { block: given, onSave: jest.fn() });
+        (modal as any).sources[0].path = 'Elsewhere';
+        expect(given.sources[0].path).toBe('Photos/Trip');
     });
 });

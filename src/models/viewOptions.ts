@@ -2,7 +2,8 @@ import { VIEW_TYPES, ViewType, resolveViewType } from './viewTypes';
 
 /** Options a gallery block can set under `view:`, besides `type` */
 export interface ViewBlockOptions {
-    pagination?: boolean;
+    /** true: page controls when there is more than one page; "force": controls even with a single page */
+    pagination?: boolean | 'force';
     itemsPerPage?: number;
     /** Overrides the "Show captions" setting for this gallery */
     captions?: boolean;
@@ -39,7 +40,10 @@ const isNumberIn = (key: string, min: number, max: number, integer = false) => (
 
 /** Every `view:` option, the views it applies to, and how its value is checked */
 export const VIEW_OPTIONS: Record<OptionKey, OptionSpec> = {
-    pagination: { views: PAGED_VIEWS, check: isBoolean('pagination') },
+    pagination: {
+        views: PAGED_VIEWS,
+        check: value => typeof value === 'boolean' || value === 'force' ? undefined : 'view.pagination must be true, false or "force"'
+    },
     itemsPerPage: { views: PAGED_VIEWS, check: isNumberIn('itemsPerPage', 1, 10000, true) },
     captions: { views: VIEW_TYPES, check: isBoolean('captions') },
     // The embed view never has a frame

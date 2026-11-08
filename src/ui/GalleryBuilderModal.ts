@@ -6,6 +6,14 @@ import { GalleryYamlGenerator } from '../utils/GalleryYamlGenerator';
 import { NotePathResolver } from '../utils/NotePathResolver';
 import { VIEW_OPTIONS, ViewBlockOptions } from '../models/viewOptions';
 import { resolveViewType } from '../models/viewTypes';
+import type { BuilderBlock } from '../utils/GalleryBlockEditor';
+import { confirmAction } from './ConfirmModal';
+
+/** Opens the builder on an existing gallery block; `onSave` gets the block's new YAML (without fences) */
+export interface BuilderEdit {
+    block: BuilderBlock;
+    onSave: (body: string) => Promise<void>;
+}
 
 /** A pixel-size view option: its field label, description and the default shown as a placeholder */
 interface SizeOptionField {
@@ -24,7 +32,8 @@ const SIZE_OPTION_FIELDS: SizeOptionField[] = [
 
 export class GalleryBuilderModal extends Modal {
     private plugin: GalleryPlugin;
-    private editor: Editor;
+    private editor: Editor | null;
+    private edit: BuilderEdit | null;
 
     private viewType: string = 'masonry';
     /** View options set in the builder; only those that apply to the chosen view are written */
@@ -32,10 +41,16 @@ export class GalleryBuilderModal extends Modal {
     private sources: Partial<ISourceConfig>[] = [];
     private livePreviewContainer!: HTMLElement;
 
-    constructor(app: App, plugin: GalleryPlugin, editor: Editor) {
+    constructor(app: App, plugin: GalleryPlugin, editor: Editor | null, edit?: BuilderEdit) {
         super(app);
         this.plugin = plugin;
         this.editor = editor;
+        this.edit = edit ?? null;
+        if (edit) {
+            this.viewType = edit.block.viewType;
+            this.viewOptions = { ...edit.block.viewOptions };
+            this.sources = edit.block.sources.map(source => JSON.parse(JSON.stringify(source)) as Partial<ISourceConfig>);
+        }
     }
 
     onOpen() {
@@ -48,10 +63,12 @@ export class GalleryBuilderModal extends Modal {
         const header = contentEl.createDiv('gallery-builder-header');
         const titleDiv = header.createDiv('gallery-builder-header-title');
         titleDiv.createSpan({ cls: 'gallery-builder-header-icon', text: '🎨' });
-        titleDiv.createEl('h2', { text: 'Gallery view builder' });
+        titleDiv.createEl('h2', { text: this.edit ? 'Gallery settings' : 'Gallery view builder' });
         header.createEl('p', {
             cls: 'gallery-builder-header-desc',
-            text: 'Configure sources and view layout to insert interactive galleries into your note.'
+            text: this.edit
+                ? 'Change the sources and layout of this gallery.'
+                : 'Configure sources and view layout to insert interactive galleries into your note.'
         });
 
         const body = contentEl.createDiv('gallery-builder-body');
@@ -146,8 +163,8 @@ export class GalleryBuilderModal extends Modal {
         const cancelBtn = footer.createEl('button', { cls: 'gallery-builder-cancel-btn', text: 'Cancel' });
         cancelBtn.addEventListener('click', () => this.close());
 
-        const insertBtn = footer.createEl('button', { cls: 'gallery-builder-insert-btn mod-cta', text: 'Insert gallery block' });
-        insertBtn.addEventListener('click', () => this.insertGallery());
+        const insertBtn = footer.createEl('button', { cls: 'gallery-builder-insert-btn mod-cta', text: this.edit ? 'Save changes' : 'Insert gallery block' });
+        insertBtn.addEventListener('click', () => { void this.insertGallery(); });
 
         this.refreshLivePreview();
     }
@@ -211,12 +228,15 @@ export class GalleryBuilderModal extends Modal {
 
         if (applies('pagination')) {
             new Setting(container)
-                .setName('Enable pagination')
-                .setDesc('Show prev/next page controls instead of lazy-loading the full image list.')
-                .addToggle(toggle => toggle
-                    .setValue(this.viewOptions.pagination ?? false)
+                .setName('Pagination')
+                .setDesc('Show prev/next page controls instead of lazy-loading the full image list. The last option keeps the controls, with the gallery settings button, even when there is only one page.')
+                .addDropdown(dropdown => dropdown
+                    .addOption('off', 'Off')
+                    .addOption('on', 'On')
+                    .addOption('force', 'Always show controls')
+                    .setValue(this.viewOptions.pagination === 'force' ? 'force' : this.viewOptions.pagination ? 'on' : 'off')
                     .onChange(value => {
-                        this.viewOptions.pagination = value;
+                        this.viewOptions.pagination = value === 'force' ? 'force' : value === 'on';
                         this.renderViewOptions(container);
                         this.refreshLivePreview();
                     })
@@ -1355,13 +1375,27 @@ export class GalleryBuilderModal extends Modal {
         renderItems();
     }
 
-    private insertGallery() {
+    /** Insert the gallery at the cursor, or, when editing a block, write the changes back to it */
+    private async insertGallery() {
         try {
-            const yaml = GalleryYamlGenerator.generateYaml(this.sources, this.viewType, this.viewOptions);
-            this.editor.replaceSelection(yaml);
+            if (this.edit) {
+                const body = GalleryYamlGenerator.generateBody(this.sources, this.viewType, this.viewOptions);
+                if (this.edit.block.handWritten) {
+                    const overwrite = await confirmAction(
+                        this.app,
+                        'Overwrite this gallery block?',
+                        'This block appears to have been written by hand. Saving will rewrite it, and anything the builder doesn\'t cover (such as comments) will be lost. Overwrite it?',
+                        'Overwrite'
+                    );
+                    if (!overwrite) return;
+                }
+                await this.edit.onSave(body);
+            } else {
+                this.editor?.replaceSelection(GalleryYamlGenerator.generateYaml(this.sources, this.viewType, this.viewOptions));
+            }
             this.close();
         } catch (e) {
-            new Notice(`Failed to generate gallery: ${e instanceof Error ? e.message : String(e)}`);
+            new Notice(`Failed to ${this.edit ? 'save' : 'generate'} gallery: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
 }

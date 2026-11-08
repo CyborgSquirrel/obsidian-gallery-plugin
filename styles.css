@@ -576,6 +576,7 @@ button.gallery-carousel-indicator:focus-visible {
 
 /* Pagination controls (Grid, Thumbnail, Embed views) */
 .gallery-pagination {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -600,6 +601,14 @@ button.gallery-carousel-indicator:focus-visible {
 .gallery-pagination-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.gallery-pagination-configure {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
 }
 
 .gallery-pagination-status {
