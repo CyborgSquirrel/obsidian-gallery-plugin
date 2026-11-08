@@ -35,7 +35,7 @@ describe('GalleryYamlGenerator', () => {
 
         const result = GalleryYamlGenerator.generateYaml(sources, 'grid');
 
-        expect(result).toContain('filenameFilter: *.jpg');
+        expect(result).toContain('filenameFilter: "*.jpg"');
         expect(result).toContain('filters:');
         expect(result).toContain('modifiedAfter: 2025-01-01');
         expect(result).toContain('minSizeKb: 100');
@@ -183,6 +183,15 @@ describe('GalleryYamlGenerator', () => {
         expect(result).not.toContain('itemsPerPage:');
     });
 
+    it('should quote values that would not read back as typed', () => {
+        const result = GalleryYamlGenerator.generateYaml(
+            [{ type: 'local', path: 'Photos: 2024', filenameFilter: '*.jpg' }], 'grid');
+
+        expect(result).toContain('path: "Photos: 2024"');
+        expect(result).toContain('filenameFilter: "*.jpg"');
+        expect(GalleryYamlGenerator.generateYaml([{ type: 'local', path: 'Assets/Photos' }], 'grid')).toContain('path: Assets/Photos');
+    });
+
     it('should emit pagination and itemsPerPage when enabled', () => {
         const sources: Partial<ISourceConfig>[] = [
             { type: 'local', path: 'Assets/Photos' }
@@ -251,7 +260,7 @@ describe('GalleryYamlGenerator', () => {
         expect(result).toContain('connection: my-cloud');
         expect(result).toContain('path: /Photos');
         expect(result).toContain('recursive: false');
-        expect(result).toContain('filenameFilter: *.jpg');
+        expect(result).toContain('filenameFilter: "*.jpg"');
         expect(result).toContain('limit: 10');
         expect(result).toContain('filters:');
         expect(result).toContain('maxSizeKb: 5000');
@@ -278,7 +287,7 @@ describe('GalleryYamlGenerator', () => {
         expect(result).toContain('- type: nextcloud-share');
         expect(result).toContain('url: https://cloud.example.com/s/TOKEN');
         expect(result).toContain('password: secretpassword');
-        expect(result).toContain('filenameFilter: *.png');
+        expect(result).toContain('filenameFilter: "*.png"');
     });
 
     it('should generate valid yaml for nextcloud-share source without password', () => {

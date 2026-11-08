@@ -175,7 +175,7 @@ describe('GalleryBuilderModal Nextcloud YAML generation', () => {
         const yaml = GalleryYamlGenerator.generateYaml([source], 'grid');
 
         expect(yaml).toContain('type: nextcloud');
-        expect(yaml).toContain('filenameFilter: *.png');
+        expect(yaml).toContain('filenameFilter: "*.png"');
         expect(yaml).toContain('modifiedAfter: 2025-01-01');
         expect(yaml).toContain('maxSizeKb: 1000');
         expect(yaml).toContain('by: size');
@@ -200,7 +200,7 @@ describe('GalleryBuilderModal Nextcloud YAML generation', () => {
 
         expect(yaml).toContain('type: nextcloud-share');
         expect(yaml).toContain('url: https://example.com/s/TOKEN');
-        expect(yaml).toContain('filenameFilter: *.jpg');
+        expect(yaml).toContain('filenameFilter: "*.jpg"');
         expect(yaml).toContain('mimeTypes:');
         expect(yaml).toContain('- image/jpeg');
         expect(yaml).toContain('limit: 50');

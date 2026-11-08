@@ -5,6 +5,15 @@ import { resolveViewType } from '../models/viewTypes';
 /** Order the view options are written in */
 const VIEW_OPTION_ORDER: (keyof ViewBlockOptions)[] = ['captions', 'frame', 'rowHeight', 'columnWidth', 'height', 'gap', 'pagination', 'itemsPerPage'];
 
+/**
+ * A string as a YAML value: quoted only when written plain it would be read as something else
+ * (a leading `*` is an alias, `: ` a mapping, ` #` a comment, ...). Ordinary values stay as typed.
+ */
+function scalar(value: string): string {
+    const plain = /^[\s\-?:,[\]{}#&*!|>'"%@`]/.test(value) || /:\s|\s#|\s$/.test(value) || /^(true|false|null|yes|no|on|off|~)$/i.test(value);
+    return plain ? JSON.stringify(value) : value;
+}
+
 export class GalleryYamlGenerator {
     static generateYaml(
         sources: Partial<ISourceConfig>[],
@@ -26,12 +35,12 @@ export class GalleryYamlGenerator {
             switch (source.type) {
                 case 'local':
                     if (!source.path) throw new Error('Local source requires a path.');
-                    yaml += `    path: ${source.path}\n`;
+                    yaml += `    path: ${scalar(source.path)}\n`;
                     if (source.recursive !== undefined) {
                         yaml += `    recursive: ${source.recursive}\n`;
                     }
                     if (source.filenameFilter) {
-                        yaml += `    filenameFilter: ${source.filenameFilter}\n`;
+                        yaml += `    filenameFilter: ${scalar(source.filenameFilter)}\n`;
                     }
                     if (source.filters && (source.filters.modifiedAfter || source.filters.modifiedBefore || source.filters.maxSizeKb !== undefined || source.filters.minSizeKb !== undefined)) {
                         yaml += `    filters:\n`;
@@ -66,10 +75,10 @@ export class GalleryYamlGenerator {
                     for (const item of source.urls) {
                         if (typeof item === 'string') {
                             if (item.trim()) {
-                                yaml += `      - ${item.trim()}\n`;
+                                yaml += `      - ${scalar(item.trim())}\n`;
                             }
                         } else if (typeof item === 'object' && item !== null && item.url && item.url.trim()) {
-                            yaml += `      - url: ${item.url.trim()}\n`;
+                            yaml += `      - url: ${scalar(item.url.trim())}\n`;
                             if (item.caption && item.caption.trim()) {
                                 yaml += `        caption: "${item.caption.trim().replace(/"/g, '\\"')}"\n`;
                             }
@@ -81,12 +90,12 @@ export class GalleryYamlGenerator {
                     if (!source.url) throw new Error('Immich share source requires a URL.');
                     yaml += `    url: ${source.url.trim()}\n`;
                     if (source.password && source.password.trim()) {
-                        yaml += `    password: ${source.password.trim()}\n`;
+                        yaml += `    password: ${scalar(source.password.trim())}\n`;
                     }
                     break;
                 case 'immich':
                     if (!source.connection) throw new Error('Immich authenticated source requires a connection.');
-                    yaml += `    connection: ${source.connection}\n`;
+                    yaml += `    connection: ${scalar(source.connection)}\n`;
 
                     if (source.filters) {
                         yaml += `    filters:\n`;
@@ -150,15 +159,15 @@ export class GalleryYamlGenerator {
                     break;
                 case 'nextcloud':
                     if (!source.connection) throw new Error('Nextcloud source requires a connection.');
-                    yaml += `    connection: ${source.connection}\n`;
+                    yaml += `    connection: ${scalar(source.connection)}\n`;
                     if (source.path) {
-                        yaml += `    path: ${source.path}\n`;
+                        yaml += `    path: ${scalar(source.path)}\n`;
                     }
                     if (source.recursive !== undefined) {
                         yaml += `    recursive: ${source.recursive}\n`;
                     }
                     if (source.filenameFilter) {
-                        yaml += `    filenameFilter: ${source.filenameFilter}\n`;
+                        yaml += `    filenameFilter: ${scalar(source.filenameFilter)}\n`;
                     }
                     if (source.filters && (source.filters.modifiedAfter || source.filters.modifiedBefore || source.filters.maxSizeKb !== undefined || source.filters.minSizeKb !== undefined || (source.filters.mimeTypes && source.filters.mimeTypes.length > 0))) {
                         yaml += `    filters:\n`;
@@ -194,10 +203,10 @@ export class GalleryYamlGenerator {
                     if (!source.url) throw new Error('Nextcloud share source requires a URL.');
                     yaml += `    url: ${source.url.trim()}\n`;
                     if (source.password && source.password.trim()) {
-                        yaml += `    password: ${source.password.trim()}\n`;
+                        yaml += `    password: ${scalar(source.password.trim())}\n`;
                     }
                     if (source.filenameFilter) {
-                        yaml += `    filenameFilter: ${source.filenameFilter}\n`;
+                        yaml += `    filenameFilter: ${scalar(source.filenameFilter)}\n`;
                     }
                     if (source.filters && source.filters.mimeTypes && source.filters.mimeTypes.length > 0) {
                         yaml += `    filters:\n`;
