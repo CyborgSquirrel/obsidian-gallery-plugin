@@ -24,6 +24,13 @@ describe('readViewOptions', () => {
         });
     });
 
+    test('rowsPerPage applies to the justified view only, as a whole number', () => {
+        expect(readViewOptions({ type: 'justified', rowsPerPage: 4 }).options).toEqual({ rowsPerPage: 4 });
+        expect(readViewOptions({ type: 'masonry', rowsPerPage: 4 }).warnings).toHaveLength(1);
+        expect(viewOptionErrors({ type: 'justified', rowsPerPage: 2.5 })).toHaveLength(1);
+        expect(viewOptionErrors({ type: 'justified', rowsPerPage: 0 })).toHaveLength(1);
+    });
+
     test('a view given as a plain name has no options', () => {
         expect(readViewOptions('masonry')).toEqual({ type: 'masonry', options: {}, warnings: [] });
     });

@@ -483,6 +483,12 @@ button.gallery-carousel-indicator:focus-visible {
   gap: var(--gallery-justified-gap);
 }
 
+.gallery-justified-loading {
+  padding: var(--size-4-6, 24px) 0;
+  text-align: center;
+  color: var(--text-muted);
+}
+
 .gallery-justified-row {
   display: flex;
   align-items: flex-start;

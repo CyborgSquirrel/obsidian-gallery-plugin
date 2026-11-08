@@ -272,6 +272,8 @@ export interface ViewRuntimeOptions {
   maxRemoteVideoMb?: number;
   pagination?: boolean;
   itemsPerPage?: number;
+  /** Justified: rows per page; takes the place of itemsPerPage */
+  rowsPerPage?: number;
   /** Draw the gallery's frame: border, background, shadow and padding */
   frame?: boolean;
   /** Justified: target row height in px */

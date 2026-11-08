@@ -183,6 +183,184 @@ describe('JustifiedView', () => {
     });
 });
 
+describe('JustifiedView rowsPerPage', () => {
+    // Width 1000, 3:2 images: 3 per row, so 5 rows hold 15 images
+    const images = () => Array.from({ length: 15 }, (_, i) => sizedImage(`img${i}`, 300, 200));
+    const rowCounts = (view: JustifiedView) =>
+        Array.from(view.container.querySelectorAll('.gallery-justified-row')).map(r => r.children.length);
+    const status = (view: JustifiedView) => view.container.querySelector('.gallery-pagination-status')?.textContent;
+    const next = (view: JustifiedView) => view.container.querySelector<HTMLButtonElement>('.gallery-pagination-next')!.click();
+
+    function pagedView(rowsPerPage: number | null = 2) {
+        layoutWidth = 1000;
+        const view = new JustifiedView(createContainer());
+        view.setOptions({ pagination: true, itemsPerPage: 4, rowsPerPage: rowsPerPage ?? undefined });
+        view.update(images());
+        return view;
+    }
+
+    // Frames run when the test says so; the view lays out on the next frame after a page change or resize
+    let frames: FrameRequestCallback[];
+    let raf: jest.SpyInstance;
+    const runFrames = () => { while (frames.length) frames.shift()!(0); };
+    beforeEach(() => { frames = []; raf = jest.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => frames.push(cb)); });
+    afterEach(() => raf.mockRestore());
+    const nextPage = (view: JustifiedView) => { next(view); runFrames(); };
+
+    test('shows the set number of rows per page, whatever the images per page', () => {
+        const view = pagedView();
+        expect(rowCounts(view)).toEqual([3, 3]);
+        expect(view.container.querySelectorAll('.gallery-tile')).toHaveLength(6);
+        expect(status(view)).toBe('Page 1');
+    });
+
+    test('next page shows the following rows, and the last page may be short', () => {
+        const view = pagedView();
+        nextPage(view);
+        expect(tileNames(view.container)).toEqual(['img6', 'img7', 'img8', 'img9', 'img10', 'img11']);
+        expect(status(view)).toBe('Page 2');
+        nextPage(view);
+        expect(tileNames(view.container)).toEqual(['img12', 'img13', 'img14']);
+        expect(view.container.querySelector<HTMLButtonElement>('.gallery-pagination-next')!.disabled).toBe(true);
+    });
+
+    test('stays on the page holding the same first image when the width changes', () => {
+        const view = pagedView();
+        nextPage(view);
+        expect(tileNames(view.container)[0]).toBe('img6');
+
+        // Narrower: 2 per row, so pages hold 4 images and the page break moves
+        layoutWidth = 600;
+        (view as unknown as { scheduleLayout(force: boolean): void }).scheduleLayout(true);
+        runFrames();
+        expect(rowCounts(view)).toEqual([2, 2]);
+        expect(tileNames(view.container)).toEqual(['img4', 'img5', 'img6', 'img7']);
+        expect(status(view)).toBe('Page 2');
+    });
+
+    test('without rowsPerPage, pages hold itemsPerPage images', () => {
+        const view = pagedView(null);
+        expect(view.container.querySelectorAll('.gallery-tile')).toHaveLength(4);
+    });
+
+    describe('images of unknown size', () => {
+        // Stands in for the browser loading an image: reports the size for its URL on a later tick
+        const sizes: Record<string, [number, number]> = {};
+        const requested: string[] = [];
+        let realImage: typeof Image;
+        beforeEach(() => {
+            realImage = window.Image;
+            class FakeImage {
+                onload: (() => void) | null = null;
+                onerror: (() => void) | null = null;
+                naturalWidth = 0;
+                naturalHeight = 0;
+                set src(url: string) {
+                    requested.push(url);
+                    setTimeout(() => {
+                        const size = sizes[url];
+                        if (!size) return this.onerror?.();
+                        [this.naturalWidth, this.naturalHeight] = size;
+                        this.onload?.();
+                    }, 0);
+                }
+            }
+            window.Image = FakeImage as unknown as typeof Image;
+            requested.length = 0;
+        });
+        afterEach(() => { window.Image = realImage; });
+
+        // Let measurements finish and the layouts they schedule run
+        const settle = async () => {
+            for (let i = 0; i < 20; i++) { await new Promise(r => setTimeout(r, 0)); runFrames(); }
+        };
+        const unknownImages = (n: number) => Array.from({ length: n }, (_, i) => {
+            sizes[`app://u${i}.jpg`] = [300, 200];
+            return new ImageSource(`photos/u${i}.jpg`, 'local', `u${i}`, `app://u${i}.jpg`);
+        });
+
+        function unknownView(n: number) {
+            layoutWidth = 1000;
+            const view = new JustifiedView(createContainer());
+            view.setOptions({ pagination: true, rowsPerPage: 2 });
+            view.update(unknownImages(n));
+            return view;
+        }
+
+        test('shows a note, not rows, until the images on the page are measured', async () => {
+            const view = unknownView(15);
+            expect(view.container.querySelector('.gallery-justified-loading')).not.toBeNull();
+            expect(view.container.querySelectorAll('.gallery-tile')).toHaveLength(0);
+
+            await settle();
+            expect(view.container.querySelector('.gallery-justified-loading')).toBeNull();
+            expect(rowCounts(view)).toEqual([3, 3]);
+        });
+
+        test('measures only what the page needs, and never shows the page count', async () => {
+            const view = unknownView(15);
+            expect(status(view)).toBe('Page 1');
+            await settle();
+            // 2 rows of the assumed 3:2 shape need 6 images, and the next one decides where the 2nd row ends;
+            // nothing beyond that is loaded, but Next is there
+            expect(requested).toHaveLength(7);
+            expect(status(view)).toBe('Page 1');
+            expect(view.container.querySelector<HTMLButtonElement>('.gallery-pagination-next')!.disabled).toBe(false);
+
+            nextPage(view);
+            await settle();
+            expect(requested).toHaveLength(13);
+            expect(status(view)).toBe('Page 2');
+
+            nextPage(view);
+            await settle();
+            expect(requested).toHaveLength(15);
+            expect(status(view)).toBe('Page 3');
+            expect(view.container.querySelector<HTMLButtonElement>('.gallery-pagination-next')!.disabled).toBe(true);
+        });
+
+        test('a later page waits for every image before it', async () => {
+            const view = unknownView(15);
+            await settle();
+            nextPage(view);
+            nextPage(view);
+            await settle();
+            expect(tileNames(view.container)).toEqual(['u12', 'u13', 'u14']);
+        });
+
+        test('uses the measured shapes: portraits fit more to a row', async () => {
+            layoutWidth = 1000;
+            const view = new JustifiedView(createContainer());
+            view.setOptions({ pagination: true, rowsPerPage: 1 });
+            const imgs = Array.from({ length: 8 }, (_, i) => {
+                sizes[`app://p${i}.jpg`] = [200, 300];
+                return new ImageSource(`photos/p${i}.jpg`, 'local', `p${i}`, `app://p${i}.jpg`);
+            });
+            view.update(imgs);
+            await settle();
+            // Seven 2:3 portraits fill a 1000px row at ~209px, near the 220px target; assumed 3:2 shapes would give three
+            expect(rowCounts(view)).toEqual([7]);
+        });
+
+        test('an image that fails to load does not stop the page showing', async () => {
+            layoutWidth = 1000;
+            const view = new JustifiedView(createContainer());
+            view.setOptions({ pagination: true, rowsPerPage: 1 });
+            view.update([new ImageSource('photos/x.jpg', 'local', 'x', 'app://missing.jpg')]);
+            await settle();
+            expect(view.container.querySelector('.gallery-justified-loading')).toBeNull();
+            expect(view.container.querySelectorAll('.gallery-tile')).toHaveLength(1);
+        });
+    });
+
+    test('does not put tiles in the DOM until the gallery has a width', () => {
+        const view = new JustifiedView(createContainer());
+        view.setOptions({ pagination: true, rowsPerPage: 2 });
+        view.update(images());
+        expect(view.container.querySelectorAll('.gallery-tile')).toHaveLength(0);
+    });
+});
+
 describe('extractImmichDimensions', () => {
     test('prefers the asset size, then EXIF', () => {
         expect(extractImmichDimensions({ id: 'a', width: 4000, height: 3000 })).toEqual({ width: 4000, height: 3000 });

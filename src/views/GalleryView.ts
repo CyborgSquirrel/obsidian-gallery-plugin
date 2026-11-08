@@ -50,6 +50,8 @@ export abstract class GalleryView implements IGalleryView {
     public captionMaxLines: number = 1;
     public paginationEnabled: boolean = false;
     public itemsPerPage: number = 24;
+    /** Rows per page (justified view); when set it takes the place of itemsPerPage */
+    public rowsPerPage: number | undefined = undefined;
     protected currentPage: number = 1;
     /** Per-gallery layout sizes from the block's view: options (px); views that support them apply them */
     protected layoutOptions: { rowHeight?: number; columnWidth?: number; gap?: number; height?: number } = {};
@@ -162,6 +164,7 @@ export abstract class GalleryView implements IGalleryView {
         if (typeof options.maxRemoteVideoMb === 'number' && options.maxRemoteVideoMb >= 0) this.maxRemoteVideoMb = options.maxRemoteVideoMb;
         if (typeof options.pagination === 'boolean') this.paginationEnabled = options.pagination;
         if (typeof options.itemsPerPage === 'number' && options.itemsPerPage > 0) this.itemsPerPage = Math.floor(options.itemsPerPage);
+        if ('rowsPerPage' in options) this.rowsPerPage = typeof options.rowsPerPage === 'number' && options.rowsPerPage > 0 ? Math.floor(options.rowsPerPage) : undefined;
         // Passed together for each gallery, so a key that is present but undefined clears an earlier value
         if ('rowHeight' in options || 'columnWidth' in options || 'gap' in options || 'height' in options) {
             this.layoutOptions = { rowHeight: options.rowHeight, columnWidth: options.columnWidth, gap: options.gap, height: options.height };
@@ -188,6 +191,11 @@ export abstract class GalleryView implements IGalleryView {
     protected get totalPages(): number {
         if (!this.paginationEnabled || this.itemsPerPage <= 0) return 1;
         return Math.max(1, Math.ceil(this._images.length / this.itemsPerPage));
+    }
+
+    /** The pagination bar's text; a view that can't tell the page count yet leaves it out */
+    protected get pageStatusText(): string {
+        return `Page ${this.currentPage} of ${this.totalPages}`;
     }
 
     /**
@@ -247,7 +255,7 @@ export abstract class GalleryView implements IGalleryView {
 
         this.createElement(bar, 'span', {
             cls: 'gallery-pagination-status',
-            text: `Page ${this.currentPage} of ${pages}`
+            text: this.pageStatusText
         });
 
         const nextBtn = this.createElement(bar, 'button', {

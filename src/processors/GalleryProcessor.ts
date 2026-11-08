@@ -661,6 +661,7 @@ export class GalleryProcessor {
             maxRemoteVideoMb: settings.maxRemoteVideoMb,
             pagination: block.pagination ?? settings.pagination,
             itemsPerPage: block.itemsPerPage ?? settings.itemsPerPage,
+            rowsPerPage: block.rowsPerPage,
             rowHeight: block.rowHeight,
             columnWidth: block.columnWidth,
             gap: block.gap,

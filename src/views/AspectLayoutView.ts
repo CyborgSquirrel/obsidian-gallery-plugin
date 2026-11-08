@@ -45,6 +45,14 @@ export abstract class AspectLayoutView extends GalleryView {
   private lastWidth = -1;
   /** Ratios measured from loaded images, kept across re-renders (page changes, option changes) */
   private readonly measuredRatios = new WeakMap<IImageSource, number>();
+  /** Images whose measuring failed or was skipped; their shape stays the default, but no longer pending */
+  private readonly unmeasurable = new WeakSet<IImageSource>();
+  /** Tiles waiting to be measured, next first (a newer request replaces it), and the images being measured now */
+  private measureQueue: LayoutTile[] = [];
+  private readonly measuring = new Set<IImageSource>();
+  /** Bumped on teardown, so measurements started for an earlier render are dropped when they finish */
+  private measureGeneration = 0;
+  private static readonly MEASURE_CONCURRENCY = 6;
 
   constructor(type: ViewType, container: HTMLElement) {
     super(type, container);
@@ -100,6 +108,9 @@ export abstract class AspectLayoutView extends GalleryView {
   }
 
   private teardownLayout(): void {
+    this.measureGeneration++;
+    this.measureQueue = [];
+    this.measuring.clear();
     this.loader?.disconnect();
     this.loader = null;
     this.resizeObserver?.disconnect();
@@ -155,6 +166,58 @@ export abstract class AspectLayoutView extends GalleryView {
 
     this.renderCaption(el, image);
     return tile;
+  }
+
+  /** Whether the image's shape is known: reported by its source, measured, or given up on */
+  protected isRatioKnown(image: IImageSource): boolean {
+    if (this.measuredRatios.has(image) || this.unmeasurable.has(image)) return true;
+    const dims = image.dimensions;
+    return !!dims && dims.width > 0 && dims.height > 0;
+  }
+
+  /**
+   * Load the tiles' images to learn their shapes, a few at a time, and relayout as they arrive.
+   * Images whose shape is known or already being measured are skipped. The browser keeps what it
+   * loaded, so the tile's own image then shows without a second fetch.
+   */
+  protected measureTiles(tiles: LayoutTile[]): void {
+    this.measureQueue = tiles.filter(t => !this.isRatioKnown(t.image) && !this.measuring.has(t.image));
+    this.pumpMeasuring();
+  }
+
+  private pumpMeasuring(): void {
+    const generation = this.measureGeneration;
+    while (this.measuring.size < AspectLayoutView.MEASURE_CONCURRENCY && this.measureQueue.length > 0) {
+      const tile = this.measureQueue.shift()!;
+      this.measuring.add(tile.image);
+      void this.measureTile(tile).then(() => {
+        if (generation !== this.measureGeneration || this._isDestroyed) return;
+        this.measuring.delete(tile.image);
+        this.pumpMeasuring();
+        this.scheduleLayout(true);
+      });
+    }
+  }
+
+  /** Never rejects; an image that can't be measured keeps the default shape */
+  private measureTile(tile: LayoutTile): Promise<void> {
+    const image = tile.image;
+    return new Promise<void>(resolve => {
+      const giveUp = () => { this.unmeasurable.add(image); resolve(); };
+      if (image.type === 'external' && !this.allowRemoteImages) return giveUp();
+
+      // loadWithTimeout has no time limit for video stills, so cap the wait here as well
+      const cap = window.setTimeout(giveUp, (this.remoteLoadTimeoutMs ?? 10000) + 5000);
+      this.loadWithTimeout(image, temp => {
+        window.clearTimeout(cap);
+        // A viewBox-only SVG reports a made-up size; without a size of its own it stays the default
+        if (isSvgPath(image.path) || !(temp.naturalWidth > 0 && temp.naturalHeight > 0)) return giveUp();
+        this.measuredRatios.set(image, temp.naturalWidth / temp.naturalHeight);
+        tile.ratio = temp.naturalWidth / temp.naturalHeight;
+        this.applyRatio(tile);
+        resolve();
+      }, () => { window.clearTimeout(cap); giveUp(); });
+    });
   }
 
   private knownRatio(image: IImageSource): number {

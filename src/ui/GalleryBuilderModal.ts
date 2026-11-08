@@ -235,6 +235,21 @@ export class GalleryBuilderModal extends Modal {
                             this.refreshLivePreview();
                         })
                     );
+
+                if (applies('rowsPerPage')) {
+                    new Setting(container)
+                        .setName('Rows per page')
+                        .setDesc('Number of rows to display per page. Leave empty to use images per page.')
+                        .addText(text => text
+                            .setPlaceholder('4')
+                            .setValue(this.viewOptions.rowsPerPage?.toString() || '')
+                            .onChange(value => {
+                                const parsed = parseInt(value, 10);
+                                this.viewOptions.rowsPerPage = (!isNaN(parsed) && parsed > 0) ? parsed : undefined;
+                                this.refreshLivePreview();
+                            })
+                        );
+                }
             }
         }
     }

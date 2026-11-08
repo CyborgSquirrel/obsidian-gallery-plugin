@@ -183,6 +183,15 @@ describe('GalleryYamlGenerator', () => {
         expect(result).not.toContain('itemsPerPage:');
     });
 
+    it('should emit rowsPerPage instead of itemsPerPage for the justified view', () => {
+        const sources: Partial<ISourceConfig>[] = [{ type: 'local', path: 'Assets/Photos' }];
+
+        const result = GalleryYamlGenerator.generateYaml(sources, 'justified', { pagination: true, itemsPerPage: 12, rowsPerPage: 4 });
+
+        expect(result).toContain('rowsPerPage: 4');
+        expect(result).not.toContain('itemsPerPage:');
+    });
+
     it('should emit pagination and itemsPerPage when enabled', () => {
         const sources: Partial<ISourceConfig>[] = [
             { type: 'local', path: 'Assets/Photos' }

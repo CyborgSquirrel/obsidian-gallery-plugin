@@ -4,6 +4,8 @@ import { VIEW_TYPES, ViewType, resolveViewType } from './viewTypes';
 export interface ViewBlockOptions {
     pagination?: boolean;
     itemsPerPage?: number;
+    /** Justified: rows per page, instead of itemsPerPage (needs pagination) */
+    rowsPerPage?: number;
     /** Overrides the "Show captions" setting for this gallery */
     captions?: boolean;
     /** Overrides the "Show gallery frame" setting for this gallery */
@@ -41,6 +43,7 @@ const isNumberIn = (key: string, min: number, max: number, integer = false) => (
 export const VIEW_OPTIONS: Record<OptionKey, OptionSpec> = {
     pagination: { views: PAGED_VIEWS, check: isBoolean('pagination') },
     itemsPerPage: { views: PAGED_VIEWS, check: isNumberIn('itemsPerPage', 1, 10000, true) },
+    rowsPerPage: { views: ['justified'], check: isNumberIn('rowsPerPage', 1, 1000, true) },
     captions: { views: VIEW_TYPES, check: isBoolean('captions') },
     // The embed view never has a frame
     frame: { views: VIEW_TYPES.filter(v => v !== 'embed'), check: isBoolean('frame') },

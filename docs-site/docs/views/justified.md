@@ -32,6 +32,24 @@ For `immich`, `immich-share` and `nextcloud` sources the plugin fetches thumbnai
 
 Add `pagination: true` (optionally with `itemsPerPage`) to page through large collections. See the [Masonry view](./masonry.md#pagination) page for the config keys — they work the same way here.
 
+Instead of `itemsPerPage`, the justified view can page by rows with `rowsPerPage`:
+
+````markdown
+```obs-gallery
+sources:
+  - type: immich-share
+    url: https://immich.example.com/share/your-share-key
+view:
+  type: justified
+  pagination: true
+  rowsPerPage: 4   # 1–1000; replaces itemsPerPage in this view
+```
+````
+
+Every page then shows that many rows however wide the note is, so a page holds more images in a wide pane and fewer in a narrow one. Resizing the pane moves the page breaks; the gallery stays on the page that holds the first image you were looking at. The last page may have fewer rows.
+
+A page's rows depend on the shape of every image before it. Immich reports image sizes up front, so its pages appear at once. For other sources the plugin first loads the images the page needs, in order, and shows "Loading photos…" until they are in, so the rows never jump after they appear. It does not load the rest of the gallery ahead of time, so the bar reads "Page 1", "Page 2" and so on, without a total. Next is available whenever another page follows. Jumping to a late page of a large gallery therefore waits for all the images before it.
+
 ### Row height and spacing
 
 Set them for one gallery in its `view:` block, in pixels:

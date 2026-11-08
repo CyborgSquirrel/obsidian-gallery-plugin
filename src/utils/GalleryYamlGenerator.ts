@@ -3,7 +3,7 @@ import { VIEW_OPTIONS, ViewBlockOptions } from '../models/viewOptions';
 import { resolveViewType } from '../models/viewTypes';
 
 /** Order the view options are written in */
-const VIEW_OPTION_ORDER: (keyof ViewBlockOptions)[] = ['captions', 'frame', 'rowHeight', 'columnWidth', 'height', 'gap', 'pagination', 'itemsPerPage'];
+const VIEW_OPTION_ORDER: (keyof ViewBlockOptions)[] = ['captions', 'frame', 'rowHeight', 'columnWidth', 'height', 'gap', 'pagination', 'itemsPerPage', 'rowsPerPage'];
 
 export class GalleryYamlGenerator {
     static generateYaml(
@@ -227,7 +227,9 @@ export class GalleryYamlGenerator {
             if (value === undefined || !VIEW_OPTIONS[key].views.includes(type)) continue;
             // Pagination is off unless turned on, and itemsPerPage only matters with it on
             if (key === 'pagination' && !value) continue;
-            if (key === 'itemsPerPage' && !viewOptions.pagination) continue;
+            if ((key === 'itemsPerPage' || key === 'rowsPerPage') && !viewOptions.pagination) continue;
+            // Rows per page replaces items per page
+            if (key === 'itemsPerPage' && viewOptions.rowsPerPage !== undefined && type === 'justified') continue;
             yaml += `  ${key}: ${value}\n`;
         }
         yaml += '```\n';
