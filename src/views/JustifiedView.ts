@@ -40,6 +40,8 @@ export class JustifiedView extends AspectLayoutView {
   private anchor: IImageSource | null = null;
   /** Page and page count the pagination bar was drawn for; null before the bar is first drawn */
   private barKey: string | null = null;
+  /** Rows mode: height of the page just left, kept while the next page's images are measured */
+  private heldHeight: number | null = null;
   /** Shown in place of the rows while the page's images are being measured */
   private loadingEl: HTMLElement | null = null;
 
@@ -80,6 +82,13 @@ export class JustifiedView extends AspectLayoutView {
     this.barKey = null;
     this.loadingEl = null;
     super.render();
+  }
+
+  protected goToPage(page: number): void {
+    // The old page's tiles go at once, so keep its height until the new page can be laid out
+    const changing = Math.min(Math.max(1, page), this.totalPages) !== this.currentPage;
+    if (changing && this.pagesByRows && this.root) this.heldHeight = this.root.offsetHeight || null;
+    super.goToPage(page);
   }
 
   protected renderPaginationControls(parent: HTMLElement): void {
@@ -124,6 +133,7 @@ export class JustifiedView extends AspectLayoutView {
       if (upToPage.some(tile => !this.isRatioKnown(tile.image))) {
         this.measureTiles(upToPage);
         this.showLoading();
+        if (this.heldHeight !== null) this.root!.style.setProperty('min-height', `${this.heldHeight}px`);
         this.refreshPaginationBar();
         return;
       }
@@ -132,6 +142,8 @@ export class JustifiedView extends AspectLayoutView {
       this.anchor = rows[0]?.tiles[0]?.image ?? null;
       this.loadingEl?.remove();
       this.loadingEl = null;
+      this.heldHeight = null;
+      this.root!.style.removeProperty('min-height');
     }
 
     this.rows = this.syncContainers(this.rows, rows.length, 'gallery-justified-row');

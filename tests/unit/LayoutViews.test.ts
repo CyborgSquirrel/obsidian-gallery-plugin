@@ -319,6 +319,32 @@ describe('JustifiedView rowsPerPage', () => {
             expect(view.container.querySelector<HTMLButtonElement>('.gallery-pagination-next')!.disabled).toBe(true);
         });
 
+        test('keeps the height of the page it left while the next page loads', async () => {
+            const height = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+            Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+                configurable: true,
+                get(this: HTMLElement) { return /gallery-justified-layout/.test(this.className) ? 480 : 0; }
+            });
+            try {
+                const view = unknownView(15);
+                await settle();
+                const root = () => view.container.querySelector<HTMLElement>('.gallery-justified-layout')!;
+                expect(root().style.minHeight).toBe('');
+
+                next(view);
+                expect(view.container.querySelector('.gallery-justified-loading')).not.toBeNull();
+                expect(root().style.minHeight).toBe('480px');
+
+                runFrames();
+                await settle();
+                expect(view.container.querySelector('.gallery-justified-loading')).toBeNull();
+                expect(root().style.minHeight).toBe('');
+            } finally {
+                if (height) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', height);
+                else delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight;
+            }
+        });
+
         test('a later page waits for every image before it', async () => {
             const view = unknownView(15);
             await settle();
